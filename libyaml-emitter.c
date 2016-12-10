@@ -40,6 +40,7 @@ int main(int argc, char *argv[]) {
   yaml_emitter_set_output_file(&emitter, stdout);
   yaml_emitter_set_canonical(&emitter, canonical);
   yaml_emitter_set_unicode(&emitter, unicode);
+  int implicit = 1;
 
   while (get_line(input, line)) {
     int ok;
@@ -56,16 +57,24 @@ int main(int argc, char *argv[]) {
       ok = yaml_stream_end_event_initialize(&event);
     }
     else if (strncmp(line, "+DOC", 4) == 0) {
+      implicit = 1;
+      if (strncmp(line, "+DOC ---", 8) == 0) {
+          implicit = 0;
+      }
       ok = yaml_document_start_event_initialize(
         &event,
         NULL,
         NULL,
         NULL,
-        0
+        implicit
       );
     }
     else if (strncmp(line, "-DOC", 4) == 0) {
-      ok = yaml_document_end_event_initialize(&event, 0);
+      implicit = 1;
+      if (strncmp(line, "-DOC ...", 8) == 0) {
+          implicit = 0;
+      }
+      ok = yaml_document_end_event_initialize(&event, implicit);
     }
     else if (strncmp(line, "+MAP", 4) == 0) {
       ok = yaml_mapping_start_event_initialize(
