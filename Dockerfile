@@ -13,16 +13,16 @@ RUN apk add \
         libtool \
  && true
 
-COPY $PWD/ /libyaml-parser/
+COPY $PWD/ /libyaml-emitter/
 
 RUN \
-(   cd /libyaml-parser/  \
+(   cd /libyaml-emitter/  \
  && export LD_LIBRARY_PATH=$PWD/libyaml/src/.libs \
  && make clean build \
 )
 
-ENTRYPOINT ["/libyaml-parser/libyaml-parser"]
+ENTRYPOINT ["/libyaml-emitter/libyaml-emitter"]
 
-ENV LD_LIBRARY_PATH=/libyaml-parser/libyaml/src/.libs
+ENV LD_LIBRARY_PATH=/libyaml-emitter/libyaml/src/.libs
 
 WORKDIR /cwd
