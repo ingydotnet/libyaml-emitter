@@ -1,77 +1,230 @@
 #include <yaml.h>
-
 #include <stdlib.h>
 #include <stdio.h>
-
-#ifdef NDEBUG
-#undef NDEBUG
-#endif
+#include <stdbool.h>
 #include <assert.h>
 
-void print_escaped(yaml_char_t* str, size_t length);
+// void print_escaped(yaml_char_t* str, size_t length);
+bool get_line(FILE *input, char *line);
+char *get_anchor(char sigil, char *line, char *anchor);
+char *get_tag(char *line, char *tag);
+void get_value(char *line, char *value, int *style);
 
 int main(int argc, char *argv[]) {
-  int max = (argc < 2 ? 2 : argc);
-  int number;
+  FILE *input;
+  yaml_emitter_t emitter;
+  yaml_event_t event;
 
-  for (number = 1; number < max; number++) {
-    FILE *file;
-    yaml_parser_t parser;
-    yaml_event_t event;
-    int done = 0;
-    int count = 0;
-    int error = 0;
+  int canonical = 0;
+  int unicode = 0;
+  char line[1024];
 
-    /* printf("[%d] Parsing '%s': ", number, argv[number]); */
-    fflush(stdout);
+  if (argc == 1)
+    input = stdin;
+  else if (argc == 2)
+    input = fopen(argv[1], "rb");
+  else {
+    fprintf(stderr, "Usage: libyaml-emitter [<input-file>]\n");
+    return 1;
+  }
+  assert(input);
 
-    if (argc < 2)
-      file = fopen("/dev/stdin", "rb");
-    else
-      file = fopen(argv[number], "rb");
-    assert(file);
+  memset(&emitter, 0, sizeof(emitter));
+  memset(&event, 0, sizeof(event));
+  memset(&line, 0, sizeof(line));
 
-    assert(yaml_parser_initialize(&parser));
+  if (!yaml_emitter_initialize(&emitter)) {
+    fprintf(stderr, "Could not initalize the emitter object\n");
+    return 1;
+  }
+  yaml_emitter_set_output_file(&emitter, stdout);
+  yaml_emitter_set_canonical(&emitter, canonical);
+  yaml_emitter_set_unicode(&emitter, unicode);
 
-    yaml_parser_set_input_file(&parser, file);
+  while (get_line(input, line)) {
+    int ok;
+    char anchor[256];
+    char tag[256];
 
+    if (strncmp(line, "+STR", 4) == 0) {
+      ok = yaml_stream_start_event_initialize(
+        &event,
+        YAML_UTF8_ENCODING
+      );
+    }
+    else if (strncmp(line, "-STR", 4) == 0) {
+      ok = yaml_stream_end_event_initialize(&event);
+    }
+    else if (strncmp(line, "+DOC", 4) == 0) {
+      ok = yaml_document_start_event_initialize(
+        &event,
+        NULL,
+        NULL,
+        NULL,
+        0
+      );
+    }
+    else if (strncmp(line, "-DOC", 4) == 0) {
+      ok = yaml_document_end_event_initialize(&event, 0);
+    }
+    else if (strncmp(line, "+MAP", 4) == 0) {
+      ok = yaml_mapping_start_event_initialize(
+        &event,
+        (yaml_char_t *)get_anchor('&', line, anchor),
+        (yaml_char_t *)get_tag(line, tag),
+        0,
+        0
+      );
+    }
+    else if (strncmp(line, "-MAP", 4) == 0) {
+      ok = yaml_mapping_end_event_initialize(&event);
+    }
+    else if (strncmp(line, "+SEQ", 4) == 0) {
+      ok = yaml_sequence_start_event_initialize(
+        &event,
+        (yaml_char_t *)get_anchor('&', line, anchor),
+        (yaml_char_t *)get_tag(line, tag),
+        1,
+        YAML_BLOCK_SEQUENCE_STYLE
+      );
+    }
+    else if (strncmp(line, "-SEQ", 4) == 0) {
+      ok = yaml_sequence_end_event_initialize(&event);
+    }
+    else if (strncmp(line, "=VAL", 4) == 0) {
+      char value[1024];
+      int style;
 
-    while (!done) {
-      yaml_event_delete(&event);
+      get_value(line, value, &style);
 
-      count ++;
+      ok = yaml_scalar_event_initialize(
+        &event,
+        (yaml_char_t *)get_anchor('&', line, anchor),
+        (yaml_char_t *)get_tag(line, tag),
+        (yaml_char_t *)value,
+        -1,
+        1,
+        1,
+        style
+      );
+    }
+    else if (strncmp(line, "=ALI", 4) == 0) {
+      ok = yaml_alias_event_initialize(
+        &event,
+        (yaml_char_t *)get_anchor('*', line, anchor)
+      );
+    }
+    else {
+      fprintf(stderr, "Unknown event: '%s'\n", line);
+      fflush(stdout);
+      return 1;
     }
 
-    assert(!fclose(file));
-
-    /* printf("%s (%d events)\n", (error ? "FAILURE" : "SUCCESS"), count); */
+    if (!ok)
+      goto event_error;
+    if (!yaml_emitter_emit(&emitter, &event))
+      goto emitter_error;
   }
 
+  assert(!fclose(input));
+  yaml_emitter_delete(&emitter);
+  fflush(stdout);
+
   return 0;
+
+emitter_error:
+  switch (emitter.error) {
+    case YAML_MEMORY_ERROR:
+      fprintf(stderr, "Memory error: Not enough memory for emitting\n");
+      break;
+    case YAML_WRITER_ERROR:
+      fprintf(stderr, "Writer error: %s\n", emitter.problem);
+      break;
+    case YAML_EMITTER_ERROR:
+      fprintf(stderr, "Emitter error: %s\n", emitter.problem);
+      break;
+    default:
+      /* Couldn't happen. */
+      fprintf(stderr, "Internal error\n");
+      break;
+  }
+  yaml_emitter_delete(&emitter);
+  return 1;
+
+event_error:
+  fprintf(stderr, "Memory error: Not enough memory for creating an event\n");
+  yaml_emitter_delete(&emitter);
+  return 1;
 }
 
-void print_escaped(yaml_char_t* str, size_t length) {
-  int number;
-  char c;
+bool get_line(FILE *input, char *line) {
+  char *newline;
 
-  for (number = 0; number < length; number++) {
-    c = *(str++);
-    switch(c) {
-      case '\\':
-        printf("\\\\");
-        break;
-      case '\0':
-        printf("\\0");
-        break;
-      case '\r':
-        printf("\\r");
-        break;
-      case '\n':
-        printf("\\n");
-        break;
-      default:
-        printf("%c", c);
-        break;
+  if (!fgets(line, 1024 - 1, input))
+    return false;
+
+  if ((newline = strchr(line, '\n')) == NULL) {
+    fprintf(stderr, "Line too long: '%s'", line);
+    abort();
+  }
+  *newline = '\0';
+
+  return true;
+}
+
+char *get_anchor(char sigil, char *line, char *anchor) {
+  char *start;
+  char *end;
+  if ((start = strchr(line, sigil)) == NULL)
+    return NULL;
+  start++;
+  if ((end = strchr(start, ' ')) == NULL)
+    end = line + strlen(line);
+  memcpy(anchor, start, end - start);
+  anchor[end - start] = '\0';
+  return anchor;
+}
+
+char *get_tag(char *line, char *tag) {
+  char *start;
+  char *end;
+  if ((start = strchr(line, '<')) == NULL)
+    return NULL;
+  if ((end = strchr(line, '>')) == NULL)
+    return NULL;
+  memcpy(tag, start + 1, end - start - 1);
+  tag[end - start -1] = '\0';
+  return tag;
+}
+
+void get_value(char *line, char *value, int *style) {
+  int i = 0;
+  char *start;
+  char *end;
+  if ((start = strchr(line, ':')) != NULL)
+    *style = YAML_PLAIN_SCALAR_STYLE;
+  else if ((start = strchr(line, '\'')) != NULL)
+    *style = YAML_SINGLE_QUOTED_SCALAR_STYLE;
+  else if ((start = strchr(line, '"')) != NULL)
+    *style = YAML_DOUBLE_QUOTED_SCALAR_STYLE;
+  else if ((start = strchr(line, '|')) != NULL)
+    *style = YAML_LITERAL_SCALAR_STYLE;
+  else if ((start = strchr(line, '>')) != NULL)
+    *style = YAML_FOLDED_SCALAR_STYLE;
+  else
+    abort();
+
+  end = start++ + strlen(line);
+
+  for (char *c = start; c < end; c++) {
+    if (*c == '\\') {
+      c++;
+      if (*c == 'n')
+        value[i++] = '\n';
+      else
+        abort();
     }
+    else
+      value[i++] = *c;
   }
 }

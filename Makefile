@@ -9,6 +9,7 @@ define HELP
 This Makefile supports the following targets:
 
     build    - Build ./libyaml-test-emitter
+    test     - Run the tests
     docker   - Build Docker image
 
 endef
@@ -35,6 +36,10 @@ libyaml/Makefile: libyaml
 libyaml:
 	git clone $(LIBYAML_REPO) $@
 	rm libyaml/tests/run-emitter.c
+
+.PHONY: test
+test: build
+	prove -lv test
 
 docker:
 	docker build --tag $(DOCKER_IMAGE) .
