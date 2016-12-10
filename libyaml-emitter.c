@@ -199,6 +199,7 @@ char *get_tag(char *line, char *tag) {
 
 void get_value(char *line, char *value, int *style) {
   int i = 0;
+  char *c;
   char *start;
   char *end;
   if ((start = strchr(line, ':')) != NULL)
@@ -216,7 +217,7 @@ void get_value(char *line, char *value, int *style) {
 
   end = start++ + strlen(line);
 
-  for (char *c = start; c < end; c++) {
+  for (c = start; c < end; c++) {
     if (*c == '\\') {
       c++;
       if (*c == 'n')
