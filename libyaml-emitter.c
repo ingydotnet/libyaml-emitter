@@ -8,7 +8,7 @@
 bool get_line(FILE *input, char *line);
 char *get_anchor(char sigil, char *line, char *anchor);
 char *get_tag(char *line, char *tag);
-void get_value(char *line, char *value, int *style);
+void get_value(char *line, char *value, int *style, int *offset);
 
 int main(int argc, char *argv[]) {
   FILE *input;
@@ -103,13 +103,15 @@ int main(int argc, char *argv[]) {
     else if (strncmp(line, "=VAL", 4) == 0) {
       char value[1024];
       int style;
+      (yaml_char_t *)get_tag(line, tag);
+      int offset = 5 + strlen((char *)tag) + 2;
 
-      get_value(line, value, &style);
+      get_value(line, value, &style, 0); // offset;
 
       ok = yaml_scalar_event_initialize(
         &event,
         (yaml_char_t *)get_anchor('&', line, anchor),
-        (yaml_char_t *)get_tag(line, tag),
+        tag,
         (yaml_char_t *)value,
         -1,
         1,
@@ -206,7 +208,8 @@ char *get_tag(char *line, char *tag) {
   return tag;
 }
 
-void get_value(char *line, char *value, int *style) {
+void get_value(char *line, char *value, int *style, int *offset) {
+
   int i = 0;
   char *c;
   char *start;
