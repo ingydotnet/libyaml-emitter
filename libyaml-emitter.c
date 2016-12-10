@@ -45,6 +45,7 @@ int main(int argc, char *argv[]) {
     int ok;
     char anchor[256];
     char tag[256];
+    int implicit;
 
     if (strncmp(line, "+STR", 4) == 0) {
       ok = yaml_stream_start_event_initialize(
@@ -56,16 +57,21 @@ int main(int argc, char *argv[]) {
       ok = yaml_stream_end_event_initialize(&event);
     }
     else if (strncmp(line, "+DOC", 4) == 0) {
+      implicit = strncmp(line, "+DOC ---", 8) != 0;
       ok = yaml_document_start_event_initialize(
         &event,
         NULL,
         NULL,
         NULL,
-        0
+        implicit
       );
     }
     else if (strncmp(line, "-DOC", 4) == 0) {
-      ok = yaml_document_end_event_initialize(&event, 0);
+      implicit = strncmp(line, "-DOC ...", 8) != 0;
+      ok = yaml_document_end_event_initialize(
+        &event,
+        implicit
+      );
     }
     else if (strncmp(line, "+MAP", 4) == 0) {
       ok = yaml_mapping_start_event_initialize(
