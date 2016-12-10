@@ -1,7 +1,7 @@
 LIBYAML_REPO ?= https://github.com/yaml/libyaml
 LIBYAML_BRANCH ?= master
 DOCKER_NAME ?= libyaml-emitter
-DOCKER_USER ?= ingy
+DOCKER_USER ?= $(USER)
 DOCKER_TAG ?= latest
 DOCKER_IMAGE ?= $(DOCKER_USER)/$(DOCKER_NAME):$(DOCKER_TAG)
 
@@ -9,7 +9,7 @@ define HELP
 This Makefile supports the following targets:
 
     build    - Build ./libyaml-test-emitter
-    test     - Run the tests
+    test     - Run tests
     docker   - Build Docker image
 
 endef
@@ -39,7 +39,7 @@ libyaml:
 
 .PHONY: test
 test: build
-	prove -lv test
+	prove -lv test/
 
 docker:
 	docker build --tag $(DOCKER_IMAGE) .
