@@ -202,32 +202,52 @@ char *get_tag(char *line, char *tag) {
 void get_value(char *line, char *value, int *style) {
   int i = 0;
   char *c;
-  char *start;
-  char *end;
-  if ((start = strchr(line, ':')) != NULL)
-    *style = YAML_PLAIN_SCALAR_STYLE;
-  else if ((start = strchr(line, '\'')) != NULL)
-    *style = YAML_SINGLE_QUOTED_SCALAR_STYLE;
-  else if ((start = strchr(line, '"')) != NULL)
-    *style = YAML_DOUBLE_QUOTED_SCALAR_STYLE;
-  else if ((start = strchr(line, '|')) != NULL)
-    *style = YAML_LITERAL_SCALAR_STYLE;
-  else if ((start = strchr(line, '>')) != NULL)
-    *style = YAML_FOLDED_SCALAR_STYLE;
-  else
-    abort();
+  char *start = NULL;
+  char *end = line + strlen(line);
 
-  end = start++ + strlen(line);
+  for (c = line + 4; c < end; c++) {
+    if (*c == ' ') {
+      start = c + 1;
+      if (*start == ':')
+        *style = YAML_PLAIN_SCALAR_STYLE;
+      else if (*start == '\'')
+        *style = YAML_SINGLE_QUOTED_SCALAR_STYLE;
+      else if (*start == '"')
+        *style = YAML_DOUBLE_QUOTED_SCALAR_STYLE;
+      else if (*start == '|')
+        *style = YAML_LITERAL_SCALAR_STYLE;
+      else if (*start == '>')
+        *style = YAML_FOLDED_SCALAR_STYLE;
+      else {
+        start = NULL;
+        continue;
+      }
+      start++;
+      break;
+    }
+  }
+  if (!start)
+    abort();
 
   for (c = start; c < end; c++) {
     if (*c == '\\') {
-      c++;
-      if (*c == 'n')
+      if (*++c == '\\')
+        value[i++] = '\\';
+      else if (*c == '0')
+        value[i++] = '\0';
+      else if (*c == 'b')
+        value[i++] = '\b';
+      else if (*c == 'n')
         value[i++] = '\n';
+      else if (*c == 'r')
+        value[i++] = '\r';
+      else if (*c == 't')
+        value[i++] = '\t';
       else
         abort();
     }
     else
       value[i++] = *c;
   }
+  value[i] = '\0';
 }
