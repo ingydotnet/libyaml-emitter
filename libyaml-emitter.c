@@ -103,15 +103,19 @@ int main(int argc, char *argv[]) {
     else if (strncmp(line, "=VAL", 4) == 0) {
       char value[1024];
       int style;
-      (yaml_char_t *)get_tag(line, tag);
-      int offset = 5 + strlen((char *)tag) + 2;
+      char *tag_new = (yaml_char_t *)get_tag(line, tag);
 
-      get_value(line, value, &style, 0); // offset;
+      int offset = 5 + 2;
+      if (tag_new) {
+          offset += strlen((char *)tag_new);
+      }
+
+      get_value(line, value, &style, &offset);
 
       ok = yaml_scalar_event_initialize(
         &event,
         (yaml_char_t *)get_anchor('&', line, anchor),
-        tag,
+        tag_new,
         (yaml_char_t *)value,
         -1,
         1,
