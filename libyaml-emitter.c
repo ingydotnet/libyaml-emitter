@@ -29,10 +29,6 @@ int main(int argc, char *argv[]) {
   }
   assert(input);
 
-  memset(&emitter, 0, sizeof(emitter));
-  memset(&event, 0, sizeof(event));
-  memset(&line, 0, sizeof(line));
-
   if (!yaml_emitter_initialize(&emitter)) {
     fprintf(stderr, "Could not initalize the emitter object\n");
     return 1;
