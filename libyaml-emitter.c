@@ -9,6 +9,7 @@ bool get_line(FILE *input, char *line);
 char *get_anchor(char sigil, char *line, char *anchor);
 char *get_tag(char *line, char *tag);
 void get_value(char *line, char *value, int *style, int *offset);
+char* substring(char*, int, int);
 
 int main(int argc, char *argv[]) {
   FILE *input;
@@ -105,9 +106,10 @@ int main(int argc, char *argv[]) {
       int style;
       char *tag_new = (yaml_char_t *)get_tag(line, tag);
 
-      int offset = 5 + 2;
+      int offset = 5;
       if (tag_new) {
           offset += strlen((char *)tag_new);
+          offset += 2;
       }
 
       get_value(line, value, &style, &offset);
@@ -214,24 +216,29 @@ char *get_tag(char *line, char *tag) {
 
 void get_value(char *line, char *value, int *style, int *offset) {
 
+  char string[100], *pointer;
+
+  int len = (int)strlen(line) - *offset + 1;
+  pointer = substring( line, *offset, len);
+
   int i = 0;
   char *c;
   char *start;
   char *end;
-  if ((start = strchr(line, ':')) != NULL)
+  if ((start = strchr(pointer, ':')) != NULL)
     *style = YAML_PLAIN_SCALAR_STYLE;
-  else if ((start = strchr(line, '\'')) != NULL)
+  else if ((start = strchr(pointer, '\'')) != NULL)
     *style = YAML_SINGLE_QUOTED_SCALAR_STYLE;
-  else if ((start = strchr(line, '"')) != NULL)
+  else if ((start = strchr(pointer, '"')) != NULL)
     *style = YAML_DOUBLE_QUOTED_SCALAR_STYLE;
-  else if ((start = strchr(line, '|')) != NULL)
+  else if ((start = strchr(pointer, '|')) != NULL)
     *style = YAML_LITERAL_SCALAR_STYLE;
-  else if ((start = strchr(line, '>')) != NULL)
+  else if ((start = strchr(pointer, '>')) != NULL)
     *style = YAML_FOLDED_SCALAR_STYLE;
   else
     abort();
 
-  end = start++ + strlen(line);
+  end = start++ + strlen(pointer);
 
   for (c = start; c < end; c++) {
     if (*c == '\\') {
@@ -244,4 +251,25 @@ void get_value(char *line, char *value, int *style, int *offset) {
     else
       value[i++] = *c;
   }
+}
+
+char *substring(char *string, int position, int length) {
+   char *pointer;
+   int c;
+
+   pointer = malloc(length+1);
+
+   if (pointer == NULL) {
+      printf("Unable to allocate memory.\n");
+      exit(1);
+   }
+
+   for (c = 0 ; c < length ; c++) {
+      *(pointer+c) = *(string+position-1);
+      string++;
+   }
+
+   *(pointer+c) = '\0';
+
+   return pointer;
 }
