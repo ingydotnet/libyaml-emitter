@@ -1,3 +1,4 @@
+LIBYAML_DIR ?= libyaml
 LIBYAML_REPO ?= https://github.com/yaml/libyaml
 LIBYAML_BRANCH ?= master
 DOCKER_NAME ?= libyaml-emitter
@@ -20,16 +21,16 @@ help:
 
 build: libyaml-emitter
 
-libyaml-emitter: libyaml/tests/.libs/run-emitter
+libyaml-emitter: $(LIBYAML_DIR)/tests/.libs/run-emitter
 	cp $< $@
 
-libyaml/tests/.libs/run-emitter: libyaml/tests/run-emitter.c libyaml/Makefile
-	make -C libyaml
+$(LIBYAML_DIR)/tests/.libs/run-emitter: $(LIBYAML_DIR)/tests/run-emitter.c $(LIBYAML_DIR)/Makefile
+	make -C $(LIBYAML_DIR)
 
-libyaml/tests/run-emitter.c: libyaml-emitter.c libyaml
+$(LIBYAML_DIR)/tests/run-emitter.c: libyaml-emitter.c $(LIBYAML_DIR)
 	cp $< $@
 
-libyaml/Makefile: libyaml
+$(LIBYAML_DIR)/Makefile: $(LIBYAML_DIR)
 	( cd $< && ./bootstrap && ./configure )
 	touch $@
 
